@@ -39,6 +39,8 @@ Construct 3 remains the game client. This project does not use Godot, Unity, Unr
 - Authenticated room joins and a 20-second reconnect window
 - Deterministic latency, jitter, packet-loss, and outage tests
 - Real WebSocket authentication, hostile-payload, and reconnection tests
+- Local-player visual correction smoothing with a safety snap threshold
+- Configurable multi-client load and soak runner
 - Server-authoritative horizontal movement
 - Server-authoritative jumping, gravity, falling, and landing
 - Maximum speed, room boundaries, and floor collision
@@ -281,6 +283,14 @@ npm run test:network
 ```
 
 This exercises deterministic latency/jitter/loss simulation plus real Colyseus WebSocket authentication, authoritative input rejection, dropped connections, retained seats, and same-session reconnection.
+
+Run a local multi-client load test against a running development server with:
+
+```bash
+MARIPOSA_LOAD_CLIENTS=20 MARIPOSA_LOAD_SECONDS=30 npm run load:local
+```
+
+Optional `MARIPOSA_LOAD_RAMP_MS` controls the delay between client joins. The runner reports connection failures, rooms used, input messages, observed state changes, and p50/p95/maximum join latency. Increase client counts gradually and monitor the server separately; this is an engineering tool, not a claim of production capacity.
 
 ## Quality commands
 
@@ -533,14 +543,15 @@ See [`.env.example`](.env.example) for safe local defaults.
 - Persistent accounts and rotating authenticated sessions
 - Temporary authenticated room reconnection
 - Deterministic network-condition and live WebSocket integration tests
+- Visual correction smoothing and configurable load/soak runner
 
 ### Next milestone
 
 1. Assemble and visually validate the included test-layout controller in the Construct 3 editor.
-2. Visually tune correction smoothing under shaped network conditions.
+2. Visually validate and tune the included correction smoothing in Construct 3.
 3. Add email verification, account recovery, and user-facing session management.
 4. Persist and restore the current zone and spawn state across longer disconnects.
-5. Add multi-client load, soak, and regional deployment tests.
+5. Run longer multi-client soak and regional deployment tests on production-like infrastructure.
 
 ### Later milestones
 
