@@ -1,12 +1,124 @@
-import { bigint, boolean, index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-export const transactionType=pgEnum('economy_transaction_type',['npc_purchase','npc_sale','quest_reward','seasonal_reward','player_trade','marketplace_sale','marketplace_purchase','business_payment','admin_adjustment','refund']);
-const timestamps={createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull(),updatedAt:timestamp('updated_at',{withTimezone:true}).defaultNow().notNull()};
-export const users=pgTable('users',{id:uuid('id').defaultRandom().primaryKey(),email:text('email').unique(),passwordHash:text('password_hash'),status:text('status').default('development').notNull(),...timestamps});
-export const characters=pgTable('characters',{id:uuid('id').defaultRandom().primaryKey(),userId:uuid('user_id').references(()=>users.id,{onDelete:'cascade'}).notNull(),displayName:text('display_name').notNull(),zoneId:text('zone_id').default('development_test_zone').notNull(),profile:jsonb('profile').default({}).notNull(),...timestamps},t=>[index('characters_user_idx').on(t.userId)]);
-export const playerSessions=pgTable('player_sessions',{id:uuid('id').defaultRandom().primaryKey(),userId:uuid('user_id').references(()=>users.id,{onDelete:'cascade'}).notNull(),tokenHash:text('token_hash').notNull(),expiresAt:timestamp('expires_at',{withTimezone:true}).notNull(),revoked:boolean('revoked').default(false).notNull(),createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull()});
-export const economyAccounts=pgTable('economy_accounts',{id:uuid('id').defaultRandom().primaryKey(),characterId:uuid('character_id').references(()=>characters.id,{onDelete:'cascade'}).unique(),balanceAtomic:bigint('balance_atomic',{mode:'bigint'}).default(sql`0`).notNull(),...timestamps});
-export const economyTransactions=pgTable('economy_transactions',{id:uuid('id').defaultRandom().primaryKey(),idempotencyKey:text('idempotency_key').notNull(),type:transactionType('type').notNull(),senderAccountId:uuid('sender_account_id').references(()=>economyAccounts.id),recipientAccountId:uuid('recipient_account_id').references(()=>economyAccounts.id),amountAtomic:bigint('amount_atomic',{mode:'bigint'}).notNull(),description:text('description').notNull(),metadata:jsonb('metadata').default({}).notNull(),createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull()},t=>[uniqueIndex('economy_idempotency_uidx').on(t.idempotencyKey)]);
-export const seasonalSessions=pgTable('seasonal_sessions',{id:uuid('id').defaultRandom().primaryKey(),characterId:uuid('character_id').references(()=>characters.id,{onDelete:'cascade'}).notNull(),expansionId:text('expansion_id').notNull(),expiresAt:timestamp('expires_at',{withTimezone:true}).notNull(),createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull()});
-export const seasonalClaims=pgTable('seasonal_claims',{id:uuid('id').defaultRandom().primaryKey(),submissionId:text('submission_id').notNull(),sessionId:uuid('session_id').references(()=>seasonalSessions.id,{onDelete:'cascade'}).notNull(),rewardKey:text('reward_key').notNull(),claimedAt:timestamp('claimed_at',{withTimezone:true}),createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull()},t=>[uniqueIndex('seasonal_submission_uidx').on(t.submissionId)]);
-export const auditLogs=pgTable('audit_logs',{id:uuid('id').defaultRandom().primaryKey(),actorId:uuid('actor_id'),eventType:text('event_type').notNull(),targetType:text('target_type'),targetId:text('target_id'),metadata:jsonb('metadata').default({}).notNull(),createdAt:timestamp('created_at',{withTimezone:true}).defaultNow().notNull()});
+export const transactionType = pgEnum('economy_transaction_type', [
+  'npc_purchase',
+  'npc_sale',
+  'quest_reward',
+  'seasonal_reward',
+  'player_trade',
+  'marketplace_sale',
+  'marketplace_purchase',
+  'business_payment',
+  'admin_adjustment',
+  'refund',
+]);
+const timestamps = {
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+};
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').unique(),
+  passwordHash: text('password_hash'),
+  status: text('status').default('development').notNull(),
+  ...timestamps,
+});
+export const characters = pgTable(
+  'characters',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    displayName: text('display_name').notNull(),
+    zoneId: text('zone_id').default('development_test_zone').notNull(),
+    profile: jsonb('profile').default({}).notNull(),
+    ...timestamps,
+  },
+  (t) => [index('characters_user_idx').on(t.userId)],
+);
+export const playerSessions = pgTable(
+  'player_sessions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revoked: boolean('revoked').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('player_sessions_user_idx').on(t.userId),
+    index('player_sessions_expiry_idx').on(t.expiresAt),
+  ],
+);
+export const economyAccounts = pgTable('economy_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  characterId: uuid('character_id')
+    .references(() => characters.id, { onDelete: 'cascade' })
+    .unique(),
+  balanceAtomic: bigint('balance_atomic', { mode: 'bigint' })
+    .default(sql`0`)
+    .notNull(),
+  ...timestamps,
+});
+export const economyTransactions = pgTable(
+  'economy_transactions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    type: transactionType('type').notNull(),
+    senderAccountId: uuid('sender_account_id').references(() => economyAccounts.id),
+    recipientAccountId: uuid('recipient_account_id').references(() => economyAccounts.id),
+    amountAtomic: bigint('amount_atomic', { mode: 'bigint' }).notNull(),
+    description: text('description').notNull(),
+    metadata: jsonb('metadata').default({}).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('economy_idempotency_uidx').on(t.idempotencyKey)],
+);
+export const seasonalSessions = pgTable('seasonal_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  characterId: uuid('character_id')
+    .references(() => characters.id, { onDelete: 'cascade' })
+    .notNull(),
+  expansionId: text('expansion_id').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export const seasonalClaims = pgTable(
+  'seasonal_claims',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    submissionId: text('submission_id').notNull(),
+    sessionId: uuid('session_id')
+      .references(() => seasonalSessions.id, { onDelete: 'cascade' })
+      .notNull(),
+    rewardKey: text('reward_key').notNull(),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('seasonal_submission_uidx').on(t.submissionId)],
+);
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  actorId: uuid('actor_id'),
+  eventType: text('event_type').notNull(),
+  targetType: text('target_type'),
+  targetId: text('target_id'),
+  metadata: jsonb('metadata').default({}).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
