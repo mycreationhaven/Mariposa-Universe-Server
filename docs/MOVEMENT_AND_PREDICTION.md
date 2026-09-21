@@ -28,7 +28,7 @@ The server always wins. Prediction never sends coordinates and never changes aut
 ## Current limitations
 
 - Client/server movement constants are duplicated and must remain version-matched.
-- The initial correction is immediate; visual error smoothing and snap thresholds come after real latency testing.
+- Physics reconciliation remains immediate and authoritative. Rendering preserves the pre-correction visual position as a decaying offset with a 60 ms half-life, while corrections of 120 pixels or more snap immediately. This prevents ordinary network corrections from appearing as jitter without concealing teleports or severe desynchronization.
 - The test world has one floor and horizontal boundaries.
 - Packet-loss, jitter, and artificial-latency testing remains a required milestone.
 
