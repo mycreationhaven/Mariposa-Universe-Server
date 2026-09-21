@@ -1,0 +1,2 @@
+import 'dotenv/config';import { createDatabase } from '../src/database/client.js';import { users,characters } from '../src/database/schema.js';
+const url=process.env.DATABASE_URL;if(!url)throw new Error('DATABASE_URL is required');const {db,pool}=createDatabase(url);const [user]=await db.insert(users).values({status:'development'}).returning();if(!user)throw new Error('Failed to seed user');await db.insert(characters).values({userId:user.id,displayName:'Development Butterfly'});await pool.end();console.log('Development identity seeded');

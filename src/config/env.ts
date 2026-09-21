@@ -1,0 +1,6 @@
+import 'dotenv/config';
+import { z } from 'zod';
+const bool = z.enum(['true','false']).transform(v=>v==='true');
+const schema=z.object({NODE_ENV:z.enum(['development','test','production']).default('development'),PORT:z.coerce.number().int().min(1).max(65535).default(2567),DATABASE_URL:z.string().url(),REDIS_URL:z.string().url().optional(),JWT_SECRET:z.string().min(32),SESSION_SECRET:z.string().min(32),CORS_ALLOWED_ORIGINS:z.string().default(''),SERVER_TICK_RATE:z.coerce.number().int().min(10).max(120).default(60),NETWORK_UPDATE_RATE:z.coerce.number().int().min(1).max(60).default(20),LOG_LEVEL:z.enum(['fatal','error','warn','info','debug','trace','silent']).default('info'),ARKOVIA_ENABLED:bool.default(false),STEAM_ENABLED:bool.default(false),DIRECT_DOWNLOAD_ENABLED:bool.default(true),EXTERNAL_WALLET_ENABLED:bool.default(false),SEASONAL_CONTENT_ENABLED:bool.default(true)}).superRefine((v,c)=>{if(v.STEAM_ENABLED&&(v.ARKOVIA_ENABLED||v.EXTERNAL_WALLET_ENABLED))c.addIssue({code:'custom',message:'Steam mode forbids blockchain and external wallets'});});
+export type AppConfig=z.infer<typeof schema>;
+export function loadConfig(source:NodeJS.ProcessEnv=process.env):AppConfig{const r=schema.safeParse(source);if(!r.success)throw new Error(`Invalid configuration: ${z.prettifyError(r.error)}`);return r.data;}

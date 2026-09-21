@@ -1,0 +1,5 @@
+export type AtomicAmount=bigint;
+export type EconomyTransactionType='npc_purchase'|'npc_sale'|'quest_reward'|'seasonal_reward'|'player_trade'|'marketplace_sale'|'marketplace_purchase'|'business_payment'|'admin_adjustment'|'refund';
+export interface EconomyTransaction{id:string;idempotencyKey:string;type:EconomyTransactionType;senderAccountId:string|null;recipientAccountId:string|null;amount:AtomicAmount;description:string;createdAt:Date;}
+export interface IEconomyProvider{getBalance(accountId:string):Promise<AtomicAmount>;transfer(command:{idempotencyKey:string;type:EconomyTransactionType;senderAccountId?:string;recipientAccountId?:string;amount:AtomicAmount;description:string}):Promise<EconomyTransaction>;history(accountId:string,limit:number):Promise<EconomyTransaction[]>}
+export interface IBlockchainAdapter{readonly enabled:boolean;getDepositStatus(reference:string):Promise<'unknown'|'pending'|'confirmed'|'rejected'>;requestWithdrawal(command:{accountId:string;amount:AtomicAmount;destination:string;idempotencyKey:string}):Promise<{reference:string}>}
