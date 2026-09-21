@@ -68,25 +68,24 @@ The client never submits an authoritative position.
 
 ```mermaid
 flowchart TD
-    C3["Construct 3 client"] --> MN["MariposaNetwork bridge"]
-    MN --> CS["Colyseus server"]
-    CS --> ZR["Zone room instances"]
-    ZR --> MS["Authoritative movement"]
-    CS --> AS["Application services"]
-    AS --> PG[(PostgreSQL)]
-    AS -. "optional scale-out" .-> RD[(Redis)]
-    AS --> EL["Internal ARKOS ledger"]
-    EL -. "optional and disabled by default" .-> AA["Arkovia adapter"]
-    XG["Approved add-on gateway"] --> CS
-    MG["Minigames and seasonal gameplay"] --> XG
-    PM["Approved plugins and mods"] --> XG
-    SDK["Future Creator SDK"] --> MG
-    XG --> MV["Manifest, permissions, and result validation"]
-    MV --> RW["Server-controlled rewards"]
-    RW --> AS
+    C3["Core Construct 3 client"] <--> MN["MariposaNetwork"]
+    MN <--> RT["Colyseus rooms"]
+    RT --> AU["Authoritative simulation"]
+    RT <--> CS["Core services"]
+    CS <--> PG[(PostgreSQL)]
+    CS --> EC["Internal ARKOS economy"]
+    EC -. "optional async adapter" .-> AR["Arkovia"]
+
+    CS --> LT["One-time add-on launch ticket"]
+    LT --> EX["Approved external minigame"]
+    EX <--> API["Scoped extension API"]
+    API --> VR["Session and result validation"]
+    VR --> CS
 ```
 
 The server begins as a modular monolith. It has meaningful internal boundaries without prematurely dividing the prototype into dozens of network services.
+
+Solid flows are core or authoritative. The Arkovia connection is optional and asynchronous. External minigames enter only after the core server validates the expansion and issues a one-time, short-lived launch ticket.
 
 The world model is designed around:
 
@@ -98,7 +97,7 @@ This allows future locations such as Bellweather Town or Aurelian Forest to have
 
 ### Add-ons, minigames, plugins, mods, and seasonal gameplay
 
-Mariposa Universe is designed to accept optional experiences without embedding every event into the core Construct 3 project. Approved first-party or third-party content will connect through an **add-on gateway**, not directly to the database or authoritative services.
+Mariposa Universe is designed to accept optional experiences without embedding every event into the core Construct 3 project. Different extension types use different controlled paths; they are not all network clients and are not all plugins.
 
 The planned extension categories include:
 
@@ -112,7 +111,9 @@ The planned extension categories include:
 
 Every add-on will require a registered manifest containing its expansion ID, developer ID, version, API version, minimum game version, requested permissions, active dates, permitted endpoints, checksum/signature, and approval status.
 
-Add-ons may submit events, scores, or completion claims. They may **not** directly change ARKOS, inventory, experience, accounts, core NPC state, marketplace data, or administrative privileges. The core server validates the session and result, prevents duplicate claims, determines the approved reward, and performs the authoritative transaction.
+Native seasonal zones run through normal core rooms and services. External Construct 3 minigames use one-time launch tickets and a scoped extension API. Data-only mods are imported through validation tooling rather than calling runtime APIs. Trusted backend plugins are installed by operators and use internal versioned interfaces; they are never arbitrary player-supplied code.
+
+External add-ons may submit events, scores, or completion claims. They may **not** directly change ARKOS, inventory, experience, accounts, core NPC state, marketplace data, or administrative privileges. The core server validates the session and result, prevents duplicate claims, determines the approved reward, settles it transactionally, and issues a safe return transfer to the main game.
 
 ## Authority model
 
