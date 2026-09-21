@@ -49,8 +49,10 @@ The controller connects to `ws://localhost:2567` and joins `development_test_zon
 - Disconnecting one preview removes its sprite in the other.
 - No client submits trusted coordinates.
 
-## Current limitation
+## Prediction status and current limitations
 
-The local sprite currently follows authoritative server coordinates. This proves correctness but can feel delayed under network latency. The next client change is local prediction: retain sequenced inputs, simulate immediately, reconcile to the authoritative state, discard acknowledged inputs, and replay the remaining inputs.
+Local prediction and authoritative reconciliation are now implemented in `MariposaPrediction.js`. The controller simulates input immediately, buffers sequenced frames, discards acknowledged frames, resets to server truth, and replays only unacknowledged input.
 
-Authenticated reconnect is also not implemented yet. Development reconnect creates a new temporary identity; production reconnect will bind a one-use reconnect token to a persistent authenticated session.
+The first implementation corrects immediately. Visual smoothing thresholds will be tuned after testing under simulated latency, jitter, and packet loss.
+
+Authenticated reconnect is not implemented yet. Development reconnect creates a new temporary identity; production reconnect will bind a one-use reconnect token to a persistent authenticated session.
