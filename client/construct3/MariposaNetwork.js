@@ -3,7 +3,7 @@ export class MariposaNetwork extends EventTarget{
   constructor(){super();this.client=null;this.room=null;this.localSessionId=null;this.sequence=0;this.input={left:false,right:false,jump:false};this.remoteSnapshots=new Map();}
   async Connect(endpoint){this.client=new Client(endpoint);this.dispatchEvent(new Event('connected'));}
   async JoinZone(zone='development_test_zone',options={}){if(!this.client)throw new Error('Call Connect first');this.room=await this.client.joinOrCreate(zone,options);this.localSessionId=this.room.sessionId;this.room.onStateChange(state=>this.#capture(state));this.room.onLeave(code=>this.dispatchEvent(new CustomEvent('disconnected',{detail:{code}})));this.dispatchEvent(new CustomEvent('joined',{detail:{sessionId:this.localSessionId,roomId:this.room.roomId,zone}}));return this.room;}
-  SendInput(left,right,jump=false){if(!this.room)return;this.input={left,right,jump};this.room.send('input_state',{sequence:++this.sequence,left,right,jump,clientTime:performance.now()});}
+  SendInput(left,right,jump=false){if(!this.room)return this.sequence;this.input={left,right,jump};const sequence=++this.sequence;this.room.send('input_state',{sequence,left,right,jump,clientTime:performance.now()});return sequence;}
   Interact(targetId,action){this.room?.send('interact',{targetId,action});}
   Disconnect(){this.room?.leave(true);this.room=null;}
   IsConnected(){return Boolean(this.room?.connection?.isOpen);}
