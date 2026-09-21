@@ -72,20 +72,32 @@ flowchart TD
     MN <--> RT["Colyseus rooms"]
     RT --> AU["Authoritative simulation"]
     RT <--> CS["Core services"]
+
     CS <--> PG[(PostgreSQL)]
     CS --> EC["Internal ARKOS economy"]
-    EC -. "optional async adapter" .-> AR["Arkovia"]
+    EC <--> PG
+    EC --> AA["Optional Arkovia adapter"]
+    AA -. "asynchronous when enabled" .-> AR["Arkovia Network"]
 
-    CS --> LT["One-time add-on launch ticket"]
-    LT --> EX["Approved external minigame"]
+    C3 -->|"Request approved experience"| CS
+    CS -->|"One-time launch ticket"| C3
+    C3 -->|"Launch with ticket"| EX["Approved external minigame"]
+
     EX <--> API["Scoped extension API"]
     API --> VR["Session and result validation"]
     VR --> CS
+
+    CS --> RW["Transactional reward settlement"]
+    RW --> EC
+    RW --> PG
+
+    CS -->|"One-time return ticket"| EX
+    EX -->|"Return to main game"| C3
 ```
 
 The server begins as a modular monolith. It has meaningful internal boundaries without prematurely dividing the prototype into dozens of network services.
 
-Solid flows are core or authoritative. The Arkovia connection is optional and asynchronous. External minigames enter only after the core server validates the expansion and issues a one-time, short-lived launch ticket.
+Solid flows are core or authoritative. The Arkovia connection is optional and asynchronous. The core server returns a one-time launch ticket to the core client, which then launches the approved external minigame. Results return through the scoped API for validation and transactional settlement before the server issues a safe return ticket.
 
 The world model is designed around:
 
