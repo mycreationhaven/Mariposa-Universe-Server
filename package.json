@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:network": "vitest run tests/network-conditions.test.js tests/room.integration.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@colyseus/sdk": "^0.18.2",
+    "@colyseus/testing": "^0.18.5",
     "@eslint/js": "^9.35.0",
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.1",
