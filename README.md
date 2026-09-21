@@ -32,6 +32,11 @@ Construct 3 remains the game client. This project does not use Godot, Unity, Unr
 - Colyseus WebSocket multiplayer room
 - Shared `development_test_zone`
 - Server-issued temporary development player identities
+- PostgreSQL-backed account registration and login
+- Argon2id password hashing
+- Short-lived signed access tokens and rotating hashed refresh sessions
+- Refresh-token replay revocation and idempotent logout
+- Authenticated room joins and a 20-second reconnect window
 - Server-authoritative horizontal movement
 - Server-authoritative jumping, gravity, falling, and landing
 - Maximum speed, room boundaries, and floor collision
@@ -149,20 +154,20 @@ No database credentials, signing keys, private wallet keys, treasury keys, or au
 
 ## Technology stack
 
-| Area | Technology | Purpose |
-|---|---|---|
-| Game client | Construct 3 | Downloadable 2D game and presentation layer |
-| Client integration | JavaScript | Isolated Mariposa networking bridge |
-| Runtime | Node.js 22+ | Multiplayer/backend process |
-| Server language | TypeScript | Strict, maintainable server code |
-| Real-time networking | Colyseus + WebSockets | Rooms, connections, and state synchronization |
-| Validation | Zod | Strict configuration and message validation |
-| Persistence | PostgreSQL | Transactional authoritative data |
-| Database layer | Drizzle ORM/Kit | Typed schema and migrations |
-| Logging | Pino | Structured server logs with redaction |
-| Optional coordination | Redis | Future presence, pub/sub, matchmaking, and distributed limits |
-| Testing | Vitest | Unit and security-invariant tests |
-| Automation | GitHub Actions | Lint, typecheck, tests, and build on changes |
+| Area                  | Technology            | Purpose                                                       |
+| --------------------- | --------------------- | ------------------------------------------------------------- |
+| Game client           | Construct 3           | Downloadable 2D game and presentation layer                   |
+| Client integration    | JavaScript            | Isolated Mariposa networking bridge                           |
+| Runtime               | Node.js 22+           | Multiplayer/backend process                                   |
+| Server language       | TypeScript            | Strict, maintainable server code                              |
+| Real-time networking  | Colyseus + WebSockets | Rooms, connections, and state synchronization                 |
+| Validation            | Zod                   | Strict configuration and message validation                   |
+| Persistence           | PostgreSQL            | Transactional authoritative data                              |
+| Database layer        | Drizzle ORM/Kit       | Typed schema and migrations                                   |
+| Logging               | Pino                  | Structured server logs with redaction                         |
+| Optional coordination | Redis                 | Future presence, pub/sub, matchmaking, and distributed limits |
+| Testing               | Vitest                | Unit and security-invariant tests                             |
+| Automation            | GitHub Actions        | Lint, typecheck, tests, and build on changes                  |
 
 ## Repository structure
 
@@ -255,6 +260,8 @@ The default endpoints are:
 - Health check: `http://localhost:2567/health`
 - Test room name: `development_test_zone`
 
+Production-style authentication endpoints are `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, and `POST /auth/logout`. The non-persistent `POST /auth/development` helper remains available outside production for the test layout and simulator.
+
 ## Test multiplayer without Construct 3
 
 With the server running, open another terminal and run:
@@ -301,7 +308,13 @@ client/construct3/MariposaNetwork.js
 Its current API includes:
 
 - `Connect(endpoint)`
+- `Register(email, password, displayName)`
+- `Login(email, password)`
+- `RefreshAuthentication()`
+- `Logout()`
+- `AuthenticateDevelopment(displayName)`
 - `JoinZone(zone, options)`
+- `ReconnectZone()`
 - `SendInput(left, right, jump)`
 - `Interact(targetId, action)`
 - `Disconnect()`
@@ -310,7 +323,7 @@ Its current API includes:
 - `GetRemotePlayers()`
 - `GetInterpolatedRemotePlayers()`
 
-The next game-client milestone is to create the Construct 3 test layout, spawn/despawn remote sprites, and add local-player prediction and reconciliation. See [`docs/CONSTRUCT_3_INTEGRATION.md`](docs/CONSTRUCT_3_INTEGRATION.md) and [`docs/MOVEMENT_AND_PREDICTION.md`](docs/MOVEMENT_AND_PREDICTION.md).
+The test-layout controller, remote sprite lifecycle, local prediction, authoritative reconciliation, authentication methods, and manual reconnection hook are included. See [`docs/CONSTRUCT_3_INTEGRATION.md`](docs/CONSTRUCT_3_INTEGRATION.md) and [`docs/MOVEMENT_AND_PREDICTION.md`](docs/MOVEMENT_AND_PREDICTION.md).
 
 ## Networking model
 
@@ -337,7 +350,7 @@ It does not send trusted coordinates. The server tracks the last processed seque
 - Last processed input sequence
 - Server tick
 
-Remote players are rendered using buffered interpolation. Local prediction/reconciliation is the next planned milestone.
+Remote players are rendered using buffered interpolation. The local player predicts immediately, then reconciles to authoritative snapshots and replays unacknowledged inputs.
 
 ## Database status
 
@@ -424,6 +437,12 @@ Implemented foundations:
 - Untrusted-client architecture
 - Strict message schemas
 - Server-issued development identities
+- PostgreSQL-backed accounts and characters
+- Argon2id password hashing
+- Fifteen-minute signed access tokens
+- Opaque rotating refresh tokens stored only as hashes
+- Refresh-token replay revocation and logout
+- Authenticated room joins and temporary reconnection
 - Input sequence/replay protection
 - Input rate limiting
 - Movement and delta-time constraints
@@ -436,10 +455,9 @@ Implemented foundations:
 Required before a public production launch:
 
 - TLS and secure WebSockets
-- Persistent authentication and account recovery
-- Argon2id password hashing
-- Rotating refresh tokens and hashed sessions
-- Authenticated reconnection
+- Email verification and account recovery
+- Multi-device session management
+- Persistent reconnect recovery after application restart
 - Distributed rate limiting
 - Durable transactional economy service
 - Administrative MFA and authorization controls
@@ -452,23 +470,23 @@ Read the complete checklist in [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Environment configuration
 
-| Variable | Purpose |
-|---|---|
-| `NODE_ENV` | Runtime environment |
-| `PORT` | HTTP/WebSocket listening port |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Optional future Redis connection |
-| `JWT_SECRET` | Future access-token signing secret |
-| `SESSION_SECRET` | Session protection secret |
-| `CORS_ALLOWED_ORIGINS` | Approved client origins |
-| `SERVER_TICK_RATE` | Authoritative simulation rate |
-| `NETWORK_UPDATE_RATE` | Desired state update rate |
-| `LOG_LEVEL` | Structured logging level |
-| `ARKOVIA_ENABLED` | Enables the future Arkovia adapter |
-| `STEAM_ENABLED` | Applies Steam-safe platform rules |
-| `DIRECT_DOWNLOAD_ENABLED` | Enables direct-download capability |
-| `EXTERNAL_WALLET_ENABLED` | Enables future external-wallet capability |
-| `SEASONAL_CONTENT_ENABLED` | Enables seasonal content capability |
+| Variable                   | Purpose                                   |
+| -------------------------- | ----------------------------------------- |
+| `NODE_ENV`                 | Runtime environment                       |
+| `PORT`                     | HTTP/WebSocket listening port             |
+| `DATABASE_URL`             | PostgreSQL connection string              |
+| `REDIS_URL`                | Optional future Redis connection          |
+| `JWT_SECRET`               | Access-token signing secret               |
+| `SESSION_SECRET`           | Refresh-token hashing pepper              |
+| `CORS_ALLOWED_ORIGINS`     | Approved client origins                   |
+| `SERVER_TICK_RATE`         | Authoritative simulation rate             |
+| `NETWORK_UPDATE_RATE`      | Desired state update rate                 |
+| `LOG_LEVEL`                | Structured logging level                  |
+| `ARKOVIA_ENABLED`          | Enables the future Arkovia adapter        |
+| `STEAM_ENABLED`            | Applies Steam-safe platform rules         |
+| `DIRECT_DOWNLOAD_ENABLED`  | Enables direct-download capability        |
+| `EXTERNAL_WALLET_ENABLED`  | Enables future external-wallet capability |
+| `SEASONAL_CONTENT_ENABLED` | Enables seasonal content capability       |
 
 See [`.env.example`](.env.example) for safe local defaults.
 
@@ -499,16 +517,17 @@ See [`.env.example`](.env.example) for safe local defaults.
 - PostgreSQL schema and migrations
 - Economy, seasonal, platform, world, NPC, and inventory boundaries
 - Automated tests and CI
+- Construct 3 test-layout controller
+- Local prediction and authoritative reconciliation
+- Persistent accounts and rotating authenticated sessions
+- Temporary authenticated room reconnection
 
 ### Next milestone
 
-1. Build the actual Construct 3 test layout.
-2. Display two synchronized player sprites.
-3. Add local-player prediction.
-4. Add authoritative reconciliation and buffered input replay.
-5. Implement persistent Mariposa accounts and secure sessions.
-6. Add authenticated reconnect tokens and temporary interruption recovery.
-7. Test latency, jitter, packet loss, reconnects, and modified clients.
+1. Assemble and visually validate the included test-layout controller in the Construct 3 editor.
+2. Add automated latency, jitter, packet-loss, reconnect, and modified-client tests.
+3. Add email verification, account recovery, and user-facing session management.
+4. Persist and restore the current zone and spawn state across longer disconnects.
 
 ### Later milestones
 
