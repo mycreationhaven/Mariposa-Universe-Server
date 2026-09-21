@@ -55,8 +55,14 @@ export function simulatePredicted(body, input, deltaSeconds) {
   body.y += body.vy * dt;
 
   const maxX = CLIENT_MOTION.worldWidth - CLIENT_MOTION.playerWidth;
-  if (body.x < 0) { body.x = 0; body.vx = 0; }
-  if (body.x > maxX) { body.x = maxX; body.vx = 0; }
+  if (body.x < 0) {
+    body.x = 0;
+    body.vx = 0;
+  }
+  if (body.x > maxX) {
+    body.x = maxX;
+    body.vx = 0;
+  }
   const floor = CLIENT_MOTION.floorY - CLIENT_MOTION.playerHeight;
   if (body.y >= floor) {
     body.y = floor;
@@ -95,7 +101,7 @@ export class LocalPlayerPredictor {
   reconcile(authoritativeState) {
     if (!this.body) return this.initialize(authoritativeState);
     const acknowledged = authoritativeState.lastProcessedInputSequence ?? 0;
-    this.history = this.history.filter(frame => frame.sequence > acknowledged);
+    this.history = this.history.filter((frame) => frame.sequence > acknowledged);
     this.body = copyBody(authoritativeState);
     for (const frame of this.history) {
       simulatePredicted(this.body, frame.input, frame.deltaSeconds);
@@ -105,5 +111,46 @@ export class LocalPlayerPredictor {
 
   getState() {
     return this.body;
+  }
+}
+
+export class LocalCorrectionSmoother {
+  constructor({ halfLifeSeconds = 0.06, snapDistance = 120 } = {}) {
+    this.halfLifeSeconds = halfLifeSeconds;
+    this.snapDistance = snapDistance;
+    this.offsetX = 0;
+    this.offsetY = 0;
+  }
+
+  reset() {
+    this.offsetX = 0;
+    this.offsetY = 0;
+  }
+
+  addCorrection(before, after) {
+    if (!before || !after) return;
+    const correctionX = before.x - after.x;
+    const correctionY = before.y - after.y;
+    if (Math.hypot(correctionX, correctionY) >= this.snapDistance) {
+      this.reset();
+      return;
+    }
+    this.offsetX += correctionX;
+    this.offsetY += correctionY;
+  }
+
+  sample(predictedState, deltaSeconds) {
+    if (!predictedState) return null;
+    const dt = Math.min(Math.max(deltaSeconds, 0), 0.05);
+    const decay = Math.pow(0.5, dt / Math.max(0.001, this.halfLifeSeconds));
+    this.offsetX *= decay;
+    this.offsetY *= decay;
+    if (Math.abs(this.offsetX) < 0.01) this.offsetX = 0;
+    if (Math.abs(this.offsetY) < 0.01) this.offsetY = 0;
+    return {
+      ...predictedState,
+      x: predictedState.x + this.offsetX,
+      y: predictedState.y + this.offsetY,
+    };
   }
 }
