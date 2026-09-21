@@ -40,7 +40,8 @@ export class AccessTokenService {
       expiresAt: new Date(claims.exp * 1000).toISOString(),
     };
   }
-  verify(token: string, now = Math.floor(Date.now() / 1000)) {
+  verify(token: unknown, now = Math.floor(Date.now() / 1000)) {
+    if (typeof token !== 'string') throw new Error('Invalid access token');
     const parts = token.split('.');
     if (parts.length !== 3) throw new Error('Invalid access token');
     const [h, p, s] = parts as [string, string, string],
