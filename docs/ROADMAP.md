@@ -8,4 +8,4 @@
 6. Content: server collision maps, transfers, NPC presence, inventory, quests.
 7. Commerce and scale: escrow marketplace, Redis/multiple workers, operational tooling, Creator SDK pilot.
 
-Recommended next milestone: assemble the included controller in a real Construct 3 layout and test prediction/reconciliation/reconnect under latency, jitter, packet loss, and hostile client input.
+Deterministic latency/jitter/packet-loss tests and real WebSocket hostile-input/reconnect tests are implemented. Recommended next milestone: assemble the included controller in a real Construct 3 layout, visually tune correction smoothing under shaped network conditions, and add longer multi-client soak/load coverage.
