@@ -51,8 +51,8 @@ Redis is intentionally absent from this milestone diagram. It is an optional fut
 
 ### Planned core services
 
-- Production accounts and authenticated sessions
-- Reconnectable player sessions
+- PostgreSQL-backed accounts and authenticated sessions
+- Short-window reconnectable player sessions
 - Persistent characters and inventory
 - Zone transfers and instance allocation
 - NPC simulation and persistence
@@ -90,14 +90,14 @@ Disabling a seasonal region must not invalidate permanent characters, balances, 
 
 The earlier design incorrectly routed every extension through one add-on gateway. Each extension class needs a different lifecycle and trust boundary.
 
-| Extension type | Runs where | Installation/launch path | Authority |
-|---|---|---|---|
-| Native seasonal content | Core rooms and services | Registered and activated by operators | Core server is fully authoritative |
-| External first-party minigame | Separate Construct 3 client plus approved server worker or result API | One-time launch ticket | Server worker or core validation is authoritative |
-| Creator minigame | Separate Construct 3 project using the future SDK | Approved manifest and scoped launch ticket | Claims are untrusted until core validation |
-| Data content pack/mod | Imported into controlled tools and validated before activation | Signed/versioned package import | Core runtime interprets validated data |
-| Trusted backend plugin | Installed by Mariposa operators | Reviewed server deployment | May call only approved internal interfaces |
-| Client presentation pack | Client asset/configuration loader | Signed package and compatibility check | No gameplay or persistence authority |
+| Extension type                | Runs where                                                            | Installation/launch path                   | Authority                                         |
+| ----------------------------- | --------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
+| Native seasonal content       | Core rooms and services                                               | Registered and activated by operators      | Core server is fully authoritative                |
+| External first-party minigame | Separate Construct 3 client plus approved server worker or result API | One-time launch ticket                     | Server worker or core validation is authoritative |
+| Creator minigame              | Separate Construct 3 project using the future SDK                     | Approved manifest and scoped launch ticket | Claims are untrusted until core validation        |
+| Data content pack/mod         | Imported into controlled tools and validated before activation        | Signed/versioned package import            | Core runtime interprets validated data            |
+| Trusted backend plugin        | Installed by Mariposa operators                                       | Reviewed server deployment                 | May call only approved internal interfaces        |
+| Client presentation pack      | Client asset/configuration loader                                     | Signed package and compatibility check     | No gameplay or persistence authority              |
 
 Unknown player-supplied code is never executed inside the core server. “Mod support” means controlled data packages or reviewed code—not unrestricted arbitrary code execution.
 
@@ -162,12 +162,12 @@ A checksum or publisher signature proves package identity and integrity. It does
 
 Result handling depends on reward risk:
 
-| Trust level | Suitable use | Validation approach |
-|---|---|---|
-| Low-value participation | Cosmetic participation badge | Valid session, active event, one claim |
-| Plausibility-checked | Small capped reward | Bounds, timing, objectives, replay protection, anomaly checks |
-| Server-observed | Competitive or valuable reward | Authoritative minigame worker records result |
-| Reviewed exceptional claim | Tournament/admin event | Manual review plus auditable adjustment |
+| Trust level                | Suitable use                   | Validation approach                                           |
+| -------------------------- | ------------------------------ | ------------------------------------------------------------- |
+| Low-value participation    | Cosmetic participation badge   | Valid session, active event, one claim                        |
+| Plausibility-checked       | Small capped reward            | Bounds, timing, objectives, replay protection, anomaly checks |
+| Server-observed            | Competitive or valuable reward | Authoritative minigame worker records result                  |
+| Reviewed exceptional claim | Tournament/admin event         | Manual review plus auditable adjustment                       |
 
 High-value ARKOS, rare items, rankings, or marketplace-relevant rewards should not depend solely on a creator client reporting its own score.
 
