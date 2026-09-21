@@ -53,6 +53,6 @@ The controller connects to `ws://localhost:2567` and joins `development_test_zon
 
 Local prediction and authoritative reconciliation are now implemented in `MariposaPrediction.js`. The controller simulates input immediately, buffers sequenced frames, discards acknowledged frames, resets to server truth, and replays only unacknowledged input.
 
-The first implementation corrects immediately. Visual smoothing thresholds will be tuned after testing under simulated latency, jitter, and packet loss.
+Physics corrects immediately. The local sprite now renders through a decaying correction offset with a 60 ms half-life; corrections of 120 pixels or more snap immediately. These defaults are automated-testable but should still be visually tuned in the Construct 3 layout on target hardware.
 
 The networking bridge now exposes production registration/login/refresh/logout methods and `ReconnectZone()`. A room reconnection token preserves the same Colyseus session during the server's 20-second interruption window; the account refresh token can obtain a new access token without storing the password. Longer application-restart recovery and restoring a persisted world position remain future work.
