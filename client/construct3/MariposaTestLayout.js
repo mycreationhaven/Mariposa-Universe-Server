@@ -1,4 +1,5 @@
 import { mariposaNetwork } from './MariposaNetwork.js';
+import { LocalPlayerPredictor } from './MariposaPrediction.js';
 
 const CONFIG = Object.freeze({
   endpoint: 'ws://localhost:2567',
@@ -15,6 +16,8 @@ class TestLayoutController {
     this.lastSendAt = 0;
     this.lastInputKey = '';
     this.jumpQueued = false;
+    this.currentSequence = 0;
+    this.predictor = new LocalPlayerPredictor();
   }
 
   async start() {
@@ -29,6 +32,7 @@ class TestLayoutController {
       this.setStatus(`Disconnected (${event.detail.code})`);
       this.clearRemoteSprites();
     });
+    mariposaNetwork.addEventListener('statechange', () => this.reconcileLocalPlayer());
 
     this.setStatus('Connecting…');
     try {
@@ -54,26 +58,46 @@ class TestLayoutController {
   }
 
   tick() {
-    this.sendInput();
+    const input = this.readInput();
+    this.sendInput(input);
+    this.stepPrediction(input);
     this.renderLocalPlayer();
     this.renderRemotePlayers();
   }
 
-  sendInput() {
+  readInput() {
+    return {
+      left: this.keys.has('ArrowLeft') || this.keys.has('KeyA'),
+      right: this.keys.has('ArrowRight') || this.keys.has('KeyD'),
+      jump: this.jumpQueued,
+    };
+  }
+
+  sendInput(input) {
     if (!mariposaNetwork.IsConnected()) return;
-    const left = this.keys.has('ArrowLeft') || this.keys.has('KeyA');
-    const right = this.keys.has('ArrowRight') || this.keys.has('KeyD');
-    const inputKey = `${left}:${right}`;
+    const inputKey = `${input.left}:${input.right}`;
     const now = performance.now();
     if (!this.jumpQueued && inputKey === this.lastInputKey && now - this.lastSendAt < CONFIG.sendIntervalMs) return;
-    mariposaNetwork.SendInput(left, right, this.jumpQueued);
+    this.currentSequence = mariposaNetwork.SendInput(input.left, input.right, input.jump);
     this.jumpQueued = false;
     this.lastInputKey = inputKey;
     this.lastSendAt = now;
   }
 
+  stepPrediction(input) {
+    const authoritative = mariposaNetwork.GetLocalPlayer();
+    if (!authoritative) return;
+    if (!this.predictor.getState()) this.predictor.initialize(authoritative);
+    this.predictor.step(input, this.currentSequence, this.runtime.dt);
+  }
+
+  reconcileLocalPlayer() {
+    const authoritative = mariposaNetwork.GetLocalPlayer();
+    if (authoritative) this.predictor.reconcile(authoritative);
+  }
+
   renderLocalPlayer() {
-    const state = mariposaNetwork.GetLocalPlayer();
+    const state = this.predictor.getState() ?? mariposaNetwork.GetLocalPlayer();
     const sprite = this.runtime.objects.LocalPlayer?.getFirstInstance();
     if (!state || !sprite) return;
     sprite.x = state.x;
