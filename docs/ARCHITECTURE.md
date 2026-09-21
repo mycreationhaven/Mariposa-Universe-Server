@@ -1,59 +1,59 @@
-# Architecture
+# Mariposa Universe architecture
 
-Mariposa Universe uses a server-authoritative modular architecture. The core game remains stable while approved minigames, seasonal experiences, plugins, mods, and future creator projects connect through controlled extension boundaries.
+Mariposa Universe uses a server-authoritative modular architecture. Construct 3 renders the world and sends player intentions. The backend owns identity, movement, persistence, inventory, rewards, ARKOS, NPC state, and world state.
 
-## Complete system view
+This document distinguishes the **implemented foundation** from the **planned extension architecture**. Planned boxes are design commitments, not claims that those services already exist.
+
+## 1. Core runtime
 
 ```mermaid
 flowchart TD
-  C["Core Construct 3 game"] --> N["MariposaNetwork"]
-  N --> G["Colyseus gateway"]
-  G --> R["Zone room instances"]
-  R --> M["Movement and world simulation"]
-  G --> S["Core application services"]
-  S --> P[(PostgreSQL)]
-  S -. "optional scale-out" .-> D[(Redis)]
-  S --> E["Internal ARKOS ledger"]
-  E -. "optional" .-> A["Arkovia adapter"]
-
-  SDK["Future Creator SDK"] --> AC["Approved add-on clients"]
-  AC --> X["Extension API gateway"]
-  X --> V["Manifest and capability validator"]
-  V --> SS["Seasonal session service"]
-  SS --> RV["Result and reward validator"]
-  RV --> S
+  C["Construct 3 client"] <--> B["MariposaNetwork bridge"]
+  B <--> G["Colyseus gateway and rooms"]
+  G --> M["Authoritative simulation"]
+  G <--> S["Core application services"]
+  S <--> P[(PostgreSQL)]
+  S --> E["Internal ARKOS economy"]
+  E -. "optional async integration" .-> A["Arkovia adapter"]
+  G -. "future multi-worker coordination" .-> R[(Redis)]
+  S -. "future cache and pub/sub" .-> R
 ```
 
-The extension gateway is a security boundary. It is not a shortcut into core services.
+### Implemented now
 
-## Core application
+- Construct-specific networking bridge
+- Colyseus `development_test_zone`
+- Server-issued development identities
+- Authoritative movement, gravity, jump, floor, and boundaries
+- PostgreSQL schema and migration foundation
+- Economy, seasonal, world, NPC, inventory, and platform interfaces
+- Input validation, sequence checks, rate limiting, and structured logs
 
-The application begins as a modular monolith. Real-time rooms, identity, world, economy, seasonal, inventory, NPC, database, security, and platform policy have explicit boundaries without premature networked microservices.
+### Planned core services
 
-Core systems include:
+- Production accounts and authenticated sessions
+- Reconnectable player sessions
+- Persistent characters and inventory
+- Zone transfers and instance allocation
+- NPC simulation and persistence
+- Quest, housing, business, trade, and marketplace services
+- Durable transactional ARKOS ledger
 
-- Authentication and player sessions
-- World, region, zone, and instance management
-- Authoritative movement and collision
-- Player statistics, inventory, equipment, and quests
-- Persistent NPCs and world state
-- Internal ARKOS economy
-- Marketplace and player trading
-- Seasonal registry and reward validation
-- Expansion registration and permissions
-- Administrative policy and audit logs
+The first production stages remain a modular monolith. The boxes above are module boundaries; they do not require separate network processes.
 
-## World and instance model
-
-World addresses follow:
+## 2. World and instance model
 
 ```text
 World → Region → Zone → Instance
 ```
 
-A `ZoneManager` owns zone metadata, an `InstanceAllocator` chooses a room, and `PlayerTransferService` will create short-lived one-use transfers after persistent sessions are implemented. Rooms never become one giant world.
+- `ZoneManager` resolves zone metadata and availability.
+- `InstanceAllocator` chooses or creates an appropriate room instance.
+- `PlayerTransferService` prepares short-lived, one-use transfers between rooms.
+- A room owns live simulation for its players and entities.
+- PostgreSQL owns durable state; a room does not become the permanent database.
 
-Temporary seasonal locations can use this same model:
+Seasonal locations can use the same hierarchy:
 
 ```text
 Mariposa Universe
@@ -64,153 +64,202 @@ Mariposa Universe
     └── Snowball Arena #1
 ```
 
-Seasonal zones can be activated or retired without changing the permanent world hierarchy.
+Disabling a seasonal region must not invalidate permanent characters, balances, inventory, or main-world access.
 
-## Extension architecture
+## 3. Extension types are intentionally different
 
-Mariposa Universe will support several controlled extension types.
+The earlier design incorrectly routed every extension through one add-on gateway. Each extension class needs a different lifecycle and trust boundary.
 
-| Extension type | Example | Execution model | Authority |
+| Extension type | Runs where | Installation/launch path | Authority |
 |---|---|---|---|
-| Seasonal content | Christmas Festival or Harvest Festival | Registered zones, quests, NPCs, and configuration | Core server |
-| First-party minigame | Race, puzzle, snowball game | Separate Construct 3 project or isolated game mode | Minigame submits results; core validates |
-| Creator minigame | Approved third-party experience | Creator SDK client using limited APIs | Core validates session and rewards |
-| Server plugin | New approved backend behavior | Versioned server interface with explicit permissions | Restricted to granted services |
-| Content mod | Items, dialogue, maps, or quests | Signed/versioned data package | Imported and validated by core tools |
-| Client presentation add-on | Cosmetic UI or visual package | Sandboxed client-facing assets/configuration | No authoritative write access |
+| Native seasonal content | Core rooms and services | Registered and activated by operators | Core server is fully authoritative |
+| External first-party minigame | Separate Construct 3 client plus approved server worker or result API | One-time launch ticket | Server worker or core validation is authoritative |
+| Creator minigame | Separate Construct 3 project using the future SDK | Approved manifest and scoped launch ticket | Claims are untrusted until core validation |
+| Data content pack/mod | Imported into controlled tools and validated before activation | Signed/versioned package import | Core runtime interprets validated data |
+| Trusted backend plugin | Installed by Mariposa operators | Reviewed server deployment | May call only approved internal interfaces |
+| Client presentation pack | Client asset/configuration loader | Signed package and compatibility check | No gameplay or persistence authority |
 
-“Plugin” or “mod” never means arbitrary code downloaded from an unknown creator and executed with full server access. Extensions must be reviewed, registered, permissioned, and revocable.
+Unknown player-supplied code is never executed inside the core server. “Mod support” means controlled data packages or reviewed code—not unrestricted arbitrary code execution.
 
-## Expansion manifest
+## 4. Native seasonal gameplay flow
 
-Every approved extension will have a manifest similar to:
+Native events are part of the main game runtime. They do not need the external extension API.
 
-```json
-{
-  "expansionId": "winter-race-2027",
-  "developerId": "approved-creator-id",
-  "version": "1.0.0",
-  "apiVersion": "1",
-  "minimumGameVersion": "0.5.0",
-  "permissions": ["read_profile", "read_appearance", "submit_score", "request_reward"],
-  "startsAt": "2027-12-01T00:00:00Z",
-  "endsAt": "2028-01-07T23:59:59Z",
-  "allowedEndpoints": ["/seasonal/session", "/seasonal/result", "/seasonal/reward"],
-  "checksumSha256": "verified-package-checksum",
-  "signature": "publisher-signature",
-  "approvalStatus": "approved"
-}
+```mermaid
+flowchart TD
+  P["Player in core client"] --> Z["Seasonal zone room"]
+  Z --> Q["Server-owned objectives"]
+  Q --> V["Core completion validation"]
+  V --> T["Transactional reward settlement"]
+  T --> I["Inventory, XP, or internal ARKOS"]
+  I --> P
 ```
 
-The manifest contract already exists in `src/seasonal/contracts.ts`. Signature verification, persistent registration, distribution, and administrative approval tooling remain future milestones.
+Examples include seasonal NPCs, temporary towns, quests, decorations, or platforming inside the main Construct 3 project.
 
-## Add-on session and reward flow
+## 5. External minigame launch and return flow
+
+The core server must authorize the launch **before** the external experience receives a usable session.
 
 ```mermaid
 sequenceDiagram
-  participant P as Player
-  participant A as Add-on experience
-  participant X as Extension gateway
+  participant P as Core client
   participant C as Core server
-  participant L as Ledger/Inventory
+  participant X as External minigame
+  participant G as Extension API
+  participant W as Reward services
 
-  P->>A: Start approved experience
-  A->>X: Request seasonal session
-  X->>C: Validate player, manifest, dates, permissions
-  C-->>A: Short-lived scoped session
-  P->>A: Play minigame
-  A->>X: Submit score or completion claim
-  X->>C: Validate session, plausibility, and duplicates
-  C->>L: Apply server-selected reward transaction
-  L-->>C: Authoritative result
-  C-->>A: Accepted result and reward summary
+  P->>C: Request approved experience
+  C->>C: Validate account, manifest, version, dates, policy
+  C-->>P: One-time short-lived launch ticket
+  P->>X: Launch with ticket only
+  X->>G: Exchange ticket for scoped session
+  G->>C: Consume ticket and bind player/expansion
+  C-->>X: Scoped session and approved profile view
+  X->>G: Submit result with unique submission ID
+  G->>C: Validate session, evidence, limits, duplicates
+  C->>W: Settle server-selected reward atomically
+  W-->>C: Settlement receipt
+  C-->>X: Result status and one-time return ticket
+  X-->>P: Return to Mariposa Universe
+  P->>C: Consume return ticket and rejoin target zone
 ```
 
-An add-on reports what happened. It never awards the authoritative reward itself.
+### Ticket rules
 
-The core server checks:
+- Random, unguessable, short-lived, single use
+- Stored as a hash where practical
+- Bound to player, character, expansion, version, and intended action
+- Invalid after expiration, consumption, revocation, or account suspension
+- Never contains passwords, wallet keys, database credentials, or broad bearer authority
+- Exchanged server-to-server or through a tightly scoped endpoint
 
-- Is the expansion registered and approved?
-- Is its version compatible?
-- Is it within its active dates?
-- Does it have permission to call this endpoint?
-- Is the player authenticated and bound to this session?
-- Is the session unexpired and unused where required?
-- Is the score or completion plausible?
-- Was this submission already processed?
-- Was this reward already claimed?
-- What server-owned reward mapping applies?
+An expansion should receive a pseudonymous expansion-scoped player identifier unless a global public player ID is genuinely required.
 
-## Creator SDK boundary
+## 6. Result trust levels
 
-The future Creator SDK will allow an approved developer to build a separate Construct 3 project without receiving the main Mariposa Universe project.
+A checksum or publisher signature proves package identity and integrity. It does **not** prove that a submitted score is honest.
 
-The SDK may expose:
+Result handling depends on reward risk:
 
-- Authenticated seasonal session startup
-- Public player ID and display name
-- Approved appearance and character metadata
-- Score and objective submission
-- Reward request submission
-- Return-to-main-game behavior
-- Version and capability negotiation
+| Trust level | Suitable use | Validation approach |
+|---|---|---|
+| Low-value participation | Cosmetic participation badge | Valid session, active event, one claim |
+| Plausibility-checked | Small capped reward | Bounds, timing, objectives, replay protection, anomaly checks |
+| Server-observed | Competitive or valuable reward | Authoritative minigame worker records result |
+| Reviewed exceptional claim | Tournament/admin event | Manual review plus auditable adjustment |
 
-Creators will not receive:
+High-value ARKOS, rare items, rankings, or marketplace-relevant rewards should not depend solely on a creator client reporting its own score.
 
-- The core `.c3p` project
-- Core event sheets
-- Server source code
-- Database credentials
-- Economy or inventory write access
-- Administrative endpoints
-- Private server credentials
-- ARKOS, treasury, wallet, or signing keys
+## 7. Manifest and capability model
 
-## Plugin and mod permission model
+Every external experience or package has a registered manifest with:
 
-Permissions are deny-by-default. An approved extension receives only the capabilities declared in its reviewed manifest.
+- Expansion and developer IDs
+- Extension type
+- Version and API version
+- Minimum/maximum supported game versions
+- Requested capabilities
+- Start/end dates where applicable
+- Allowed endpoints and redirect targets
+- Package checksum and publisher signature
+- Approval state: pending, approved, suspended, or revoked
+- Distribution/platform restrictions
+- Reward policy identifier
 
-Potential capabilities include:
+Capabilities are deny-by-default. Planned creator-facing capabilities include:
 
-- `read_profile`
+- `read_display_name`
 - `read_appearance`
 - `read_public_character_metadata`
 - `start_session`
 - `submit_score`
 - `submit_completion`
-- `request_reward`
+- `request_reward_evaluation`
 - `request_return_transfer`
 
-Capabilities such as direct balance writes, arbitrary inventory creation, raw database access, account administration, or arbitrary server code execution will not be offered to creator clients.
+No creator-facing capability permits direct balance writes, arbitrary item creation, raw database access, account administration, or arbitrary server code execution.
 
-Backend plugins maintained by the Mariposa team may use deeper internal interfaces, but they must still use versioned contracts, dependency injection, validation, audit logging, and least privilege.
+## 8. Reward settlement
 
-## Isolation and failure behavior
+```mermaid
+flowchart TD
+  S["Validated result"] --> D["Server reward definition"]
+  D --> K["Idempotency and prior-claim check"]
+  K --> TX["Single database transaction"]
+  TX --> L["Append ledger entry"]
+  TX --> I["Grant inventory or progress"]
+  TX --> A["Write audit event"]
+  L --> RC["Settlement receipt"]
+  I --> RC
+  A --> RC
+```
 
-Optional content must not prevent the main game from operating.
+The database transaction must either complete the whole approved reward or complete none of it. The extension receives a receipt/status, not economy or inventory write access.
 
-If an add-on is offline, expired, revoked, incompatible, or undergoing maintenance:
+## 9. Data packs and mods
 
-- Permanent Mariposa zones remain available.
-- Core authentication continues to function.
-- Internal ARKOS balances remain intact.
-- Player inventory and progress remain authoritative.
-- The add-on entry point is disabled or displays an unavailable message.
-- In-progress result handling follows an explicit closeout policy.
-- No extension is permitted to corrupt or partially settle a reward.
+Data-only mods do not call the runtime extension API. They enter through an operator-controlled import pipeline:
 
-## Authoritative simulation
+1. Upload to a quarantine/review area.
+2. Verify publisher, checksum, signature, size, and file types.
+3. Validate JSON/data schemas and references.
+4. Scan archives and reject executable or unexpected content.
+5. Validate game/API compatibility.
+6. Review balance, safety, family-friendly content, and intellectual-property status.
+7. Publish an immutable approved version.
+8. Activate it through configuration with a rollback target.
 
-The current movement simulation uses fixed constants, no client physics authority, one floor, horizontal boundaries, a 60 Hz simulation target, and Colyseus state patches. Future platforms should be represented as server-owned collision data and processed on the server.
+Maps, dialogue, item definitions, quests, and cosmetics remain data interpreted by trusted core code.
 
-Minigames may use their own approved server simulation rules, but the same principle remains: a modified Construct client cannot become authoritative merely because the experience is optional.
+## 10. Trusted backend plugins
 
-## Scaling path
+Backend plugins are operational deployments, not player-uploaded mods. They are reviewed, installed, configured, and rolled back by Mariposa operators.
 
-1. One server plus PostgreSQL
-2. Multiple workers with Redis presence/pub/sub and process-aware room allocation
-3. Region/world clusters with ownership per zone
-4. Separate seasonal/minigame workers where population requires them
-5. Geographic deployments with home-region accounts and carefully bounded transfers
+They use versioned internal interfaces and dependency injection. A plugin declares required services and fails startup if its contracts are incompatible. Sensitive actions still pass through authoritative services, database transactions, validation, and audit logging.
 
-PostgreSQL remains the transactional authority. Redis supports temporary coordination, not permanent balances or item ownership. Add-on workers can scale independently later while remaining behind the extension gateway and core validation services.
+If third-party executable backend plugins are ever allowed, they should run out of process with operating-system/container isolation and a narrow authenticated API—not inside the main game process.
+
+## 11. Creator SDK boundary
+
+Approved creators receive a separate SDK and example Construct 3 project. They do not receive:
+
+- Core `.c3p` project or event sheets
+- Server source or internal plugin interfaces
+- Database credentials
+- Economy/inventory write access
+- Administrative APIs
+- Private server credentials
+- ARKOS, treasury, wallet, or signing keys
+
+The SDK is a client for the scoped extension API; it is not a privileged server SDK.
+
+## 12. Platform and ARKOS separation
+
+All gameplay economy calls the internal economy interface. The optional Arkovia adapter runs behind that interface and is not part of movement, zones, minigames, or reward validation.
+
+Steam mode disables external-wallet and blockchain capabilities server-side. An expansion manifest cannot re-enable a platform capability prohibited by server policy.
+
+## 13. Failure and revocation behavior
+
+If an add-on is offline, expired, incompatible, suspended, or revoked:
+
+- Permanent zones remain operational.
+- Core authentication, inventory, and internal ARKOS remain available.
+- New launch-ticket issuance stops.
+- Unused launch tickets are rejected.
+- Submitted results follow a documented cutoff/closeout policy.
+- Pending settlements remain idempotent and auditable.
+- Return-to-game recovery does not depend on the add-on remaining online.
+
+The core client must always provide a safe route back if an external experience fails to complete its normal return flow.
+
+## 14. Scaling direction
+
+1. One modular Node.js server and PostgreSQL
+2. Multiple Colyseus workers with Redis coordination
+3. Region/world clusters with allocated zone ownership
+4. Separate authoritative minigame workers where demand or reward risk requires them
+5. Geographic deployments with explicit home-region and transfer rules
+
+PostgreSQL remains the transactional authority. Redis supports ephemeral presence, coordination, caches, distributed rate limits, and pub/sub; it does not become the permanent balance or ownership store.
