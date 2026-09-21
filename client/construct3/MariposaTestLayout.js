@@ -37,9 +37,8 @@ class TestLayoutController {
     this.setStatus('Connecting…');
     try {
       await mariposaNetwork.Connect(CONFIG.endpoint);
-      await mariposaNetwork.JoinZone(CONFIG.zone, {
-        developmentName: `Construct-${crypto.randomUUID().slice(0, 6)}`,
-      });
+      await mariposaNetwork.AuthenticateDevelopment(`Construct-${crypto.randomUUID().slice(0, 6)}`);
+      await mariposaNetwork.JoinZone(CONFIG.zone);
     } catch (error) {
       console.error('Mariposa connection failed', error);
       this.setStatus(`Connection failed: ${error.message}`);
