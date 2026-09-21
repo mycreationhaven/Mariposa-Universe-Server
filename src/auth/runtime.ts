@@ -1,0 +1,1 @@
+import { AccessTokenService } from './access-token.js';let service:AccessTokenService|undefined;export const configureAccessTokens=(secret:string)=>{service=new AccessTokenService(secret);};export const accessTokens=()=>{if(!service)throw new Error('Access tokens are not configured');return service;};
