@@ -1,5 +1,5 @@
 import { mariposaNetwork } from './MariposaNetwork.js';
-import { LocalPlayerPredictor } from './MariposaPrediction.js';
+import { copyBody, LocalCorrectionSmoother, LocalPlayerPredictor } from './MariposaPrediction.js';
 
 const CONFIG = Object.freeze({
   endpoint: 'ws://localhost:2567',
@@ -18,17 +18,18 @@ class TestLayoutController {
     this.jumpQueued = false;
     this.currentSequence = 0;
     this.predictor = new LocalPlayerPredictor();
+    this.correctionSmoother = new LocalCorrectionSmoother();
   }
 
   async start() {
-    this.runtime.addEventListener('keydown', event => this.onKeyDown(event));
-    this.runtime.addEventListener('keyup', event => this.onKeyUp(event));
+    this.runtime.addEventListener('keydown', (event) => this.onKeyDown(event));
+    this.runtime.addEventListener('keyup', (event) => this.onKeyUp(event));
     this.runtime.addEventListener('tick', () => this.tick());
     mariposaNetwork.addEventListener('connected', () => this.setStatus('Connected'));
-    mariposaNetwork.addEventListener('joined', event =>
+    mariposaNetwork.addEventListener('joined', (event) =>
       this.setStatus(`Joined ${event.detail.zone}`),
     );
-    mariposaNetwork.addEventListener('disconnected', event => {
+    mariposaNetwork.addEventListener('disconnected', (event) => {
       this.setStatus(`Disconnected (${event.detail.code})`);
       this.clearRemoteSprites();
     });
@@ -47,7 +48,10 @@ class TestLayoutController {
 
   onKeyDown(event) {
     this.keys.add(event.code);
-    if ((event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') && !event.repeat) {
+    if (
+      (event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') &&
+      !event.repeat
+    ) {
       this.jumpQueued = true;
     }
   }
@@ -76,7 +80,12 @@ class TestLayoutController {
     if (!mariposaNetwork.IsConnected()) return;
     const inputKey = `${input.left}:${input.right}`;
     const now = performance.now();
-    if (!this.jumpQueued && inputKey === this.lastInputKey && now - this.lastSendAt < CONFIG.sendIntervalMs) return;
+    if (
+      !this.jumpQueued &&
+      inputKey === this.lastInputKey &&
+      now - this.lastSendAt < CONFIG.sendIntervalMs
+    )
+      return;
     this.currentSequence = mariposaNetwork.SendInput(input.left, input.right, input.jump);
     this.jumpQueued = false;
     this.lastInputKey = inputKey;
@@ -92,11 +101,15 @@ class TestLayoutController {
 
   reconcileLocalPlayer() {
     const authoritative = mariposaNetwork.GetLocalPlayer();
-    if (authoritative) this.predictor.reconcile(authoritative);
+    if (!authoritative) return;
+    const before = this.predictor.getState() ? copyBody(this.predictor.getState()) : null;
+    const after = this.predictor.reconcile(authoritative);
+    this.correctionSmoother.addCorrection(before, after);
   }
 
   renderLocalPlayer() {
-    const state = this.predictor.getState() ?? mariposaNetwork.GetLocalPlayer();
+    const predicted = this.predictor.getState() ?? mariposaNetwork.GetLocalPlayer();
+    const state = this.correctionSmoother.sample(predicted, this.runtime.dt);
     const sprite = this.runtime.objects.LocalPlayer?.getFirstInstance();
     if (!state || !sprite) return;
     sprite.x = state.x;
@@ -141,7 +154,7 @@ class TestLayoutController {
   }
 }
 
-runOnStartup(async runtime => {
+runOnStartup(async (runtime) => {
   runtime.addEventListener('afterprojectstart', async () => {
     const controller = new TestLayoutController(runtime);
     await controller.start();
