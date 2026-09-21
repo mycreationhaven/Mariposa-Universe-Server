@@ -1,11 +1,11 @@
 # Roadmap
 
 1. Foundation and authoritative movement: implemented and automated-testable.
-2. Construct 3 bridge: wrapper and interpolation implemented; import and visual validation remain in Construct 3.
-3. Persistence: schema and migration workflow implemented; bind authenticated identities and reconnectable sessions next.
+2. Construct 3 bridge: wrapper, interpolation, prediction, reconciliation, authentication, and manual reconnect implemented; import and visual validation remain in Construct 3.
+3. Persistence: schema, migration workflow, PostgreSQL accounts, rotating refresh sessions, and authenticated short-window reconnect implemented. Email verification, recovery, and long-disconnect restoration remain.
 4. Economy: contract/schema/idempotency proof implemented; build transactional PostgreSQL ledger next.
 5. Seasonal: contracts/manifest/duplicate protection proof implemented; add persistent registry, signature validation, and reward catalog.
 6. Content: server collision maps, transfers, NPC presence, inventory, quests.
 7. Commerce and scale: escrow marketplace, Redis/multiple workers, operational tooling, Creator SDK pilot.
 
-Recommended next milestone: a real Construct 3 test layout plus local prediction/reconciliation and authenticated reconnect, tested with latency/loss simulation.
+Recommended next milestone: assemble the included controller in a real Construct 3 layout and test prediction/reconciliation/reconnect under latency, jitter, packet loss, and hostile client input.
