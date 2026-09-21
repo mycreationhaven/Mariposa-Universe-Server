@@ -4,20 +4,40 @@ Mariposa Universe uses a server-authoritative modular architecture. Construct 3 
 
 This document distinguishes the **implemented foundation** from the **planned extension architecture**. Planned boxes are design commitments, not claims that those services already exist.
 
-## 1. Core runtime
+## 1. Approved high-level design
 
 ```mermaid
 flowchart TD
-  C["Construct 3 client"] <--> B["MariposaNetwork bridge"]
-  B <--> G["Colyseus gateway and rooms"]
-  G --> M["Authoritative simulation"]
-  G <--> S["Core application services"]
-  S <--> P[(PostgreSQL)]
-  S --> E["Internal ARKOS economy"]
-  E -. "optional async integration" .-> A["Arkovia adapter"]
-  G -. "future multi-worker coordination" .-> R[(Redis)]
-  S -. "future cache and pub/sub" .-> R
+    C3["Core Construct 3 client"] <--> MN["MariposaNetwork"]
+    MN <--> RT["Colyseus rooms"]
+    RT --> AU["Authoritative simulation"]
+    RT <--> CS["Core services"]
+
+    CS <--> PG[(PostgreSQL)]
+    CS --> EC["Internal ARKOS economy"]
+    EC <--> PG
+    EC --> AA["Optional Arkovia adapter"]
+    AA -. "asynchronous when enabled" .-> AR["Arkovia Network"]
+
+    C3 -->|"Request approved experience"| CS
+    CS -->|"One-time launch ticket"| C3
+    C3 -->|"Launch with ticket"| EX["Approved external minigame"]
+
+    EX <--> API["Scoped extension API"]
+    API --> VR["Session and result validation"]
+    VR --> CS
+
+    CS --> RW["Transactional reward settlement"]
+    RW --> EC
+    RW --> PG
+
+    CS -->|"One-time return ticket"| EX
+    EX -->|"Return to main game"| C3
 ```
+
+This is the approved combined overview for the core runtime and external-minigame lifecycle. The launch ticket returns to the core client first; the server does not independently push it into an external program. The minigame then exchanges that authority through the scoped extension API.
+
+Redis is intentionally absent from this milestone diagram. It is an optional future coordination dependency for multi-worker deployments and never participates in permanent balances, inventory ownership, launch authority, or reward settlement.
 
 ### Implemented now
 
