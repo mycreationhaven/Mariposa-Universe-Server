@@ -77,6 +77,13 @@ flowchart TD
     AS -. "optional scale-out" .-> RD[(Redis)]
     AS --> EL["Internal ARKOS ledger"]
     EL -. "optional and disabled by default" .-> AA["Arkovia adapter"]
+    XG["Approved add-on gateway"] --> CS
+    MG["Minigames and seasonal gameplay"] --> XG
+    PM["Approved plugins and mods"] --> XG
+    SDK["Future Creator SDK"] --> MG
+    XG --> MV["Manifest, permissions, and result validation"]
+    MV --> RW["Server-controlled rewards"]
+    RW --> AS
 ```
 
 The server begins as a modular monolith. It has meaningful internal boundaries without prematurely dividing the prototype into dozens of network services.
@@ -88,6 +95,24 @@ World → Region → Zone → Instance
 ```
 
 This allows future locations such as Bellweather Town or Aurelian Forest to have multiple instances without treating the entire MMORPG as one enormous room.
+
+### Add-ons, minigames, plugins, mods, and seasonal gameplay
+
+Mariposa Universe is designed to accept optional experiences without embedding every event into the core Construct 3 project. Approved first-party or third-party content will connect through an **add-on gateway**, not directly to the database or authoritative services.
+
+The planned extension categories include:
+
+- Seasonal festivals and temporary zones
+- Separate Construct 3 minigames
+- Platforming challenges, races, puzzles, and cooperative games
+- Seasonal NPCs, quests, decorations, and objectives
+- Approved server plugins that use documented service interfaces
+- Approved content mods made against versioned data schemas
+- Future Creator SDK experiences built without access to the core `.c3p`
+
+Every add-on will require a registered manifest containing its expansion ID, developer ID, version, API version, minimum game version, requested permissions, active dates, permitted endpoints, checksum/signature, and approval status.
+
+Add-ons may submit events, scores, or completion claims. They may **not** directly change ARKOS, inventory, experience, accounts, core NPC state, marketplace data, or administrative privileges. The core server validates the session and result, prevents duplicate claims, determines the approved reward, and performs the authoritative transaction.
 
 ## Authority model
 
