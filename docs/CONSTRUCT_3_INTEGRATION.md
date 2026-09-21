@@ -21,11 +21,11 @@ Construct supports importing JavaScript files in the Scripts folder. Its scripts
 
 Names are case-sensitive in JavaScript.
 
-| Construct object | Type | Required setup |
-|---|---|---|
-| `LocalPlayer` | Sprite | One instance on `Game`; origin at top-left; approximately 40×72 |
-| `RemotePlayer` | Sprite | Object type only; no initial instance; origin at top-left; approximately 40×72 |
-| `StatusText` | Text | One instance for connection status |
+| Construct object | Type   | Required setup                                                                 |
+| ---------------- | ------ | ------------------------------------------------------------------------------ |
+| `LocalPlayer`    | Sprite | One instance on `Game`; origin at top-left; approximately 40×72                |
+| `RemotePlayer`   | Sprite | Object type only; no initial instance; origin at top-left; approximately 40×72 |
+| `StatusText`     | Text   | One instance for connection status                                             |
 
 Use visibly different placeholder colors for local and remote sprites. Do not add Construct Platform movement behavior; the server owns movement.
 
@@ -55,4 +55,4 @@ Local prediction and authoritative reconciliation are now implemented in `Maripo
 
 The first implementation corrects immediately. Visual smoothing thresholds will be tuned after testing under simulated latency, jitter, and packet loss.
 
-Authenticated reconnect is not implemented yet. Development reconnect creates a new temporary identity; production reconnect will bind a one-use reconnect token to a persistent authenticated session.
+The networking bridge now exposes production registration/login/refresh/logout methods and `ReconnectZone()`. A room reconnection token preserves the same Colyseus session during the server's 20-second interruption window; the account refresh token can obtain a new access token without storing the password. Longer application-restart recovery and restoring a persisted world position remain future work.
