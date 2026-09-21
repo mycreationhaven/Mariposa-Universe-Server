@@ -37,6 +37,8 @@ Construct 3 remains the game client. This project does not use Godot, Unity, Unr
 - Short-lived signed access tokens and rotating hashed refresh sessions
 - Refresh-token replay revocation and idempotent logout
 - Authenticated room joins and a 20-second reconnect window
+- Deterministic latency, jitter, packet-loss, and outage tests
+- Real WebSocket authentication, hostile-payload, and reconnection tests
 - Server-authoritative horizontal movement
 - Server-authoritative jumping, gravity, falling, and landing
 - Maximum speed, room boundaries, and floor collision
@@ -272,6 +274,14 @@ npm run simulate
 
 The script connects two real Colyseus clients, moves Player A, confirms that Player B receives Player A's authoritative state, disconnects Player A, and verifies room cleanup.
 
+Run the focused network and hostile-client suite with:
+
+```bash
+npm run test:network
+```
+
+This exercises deterministic latency/jitter/loss simulation plus real Colyseus WebSocket authentication, authoritative input rejection, dropped connections, retained seats, and same-session reconnection.
+
 ## Quality commands
 
 ```bash
@@ -496,6 +506,7 @@ See [`.env.example`](.env.example) for safe local defaults.
 - [`CONSTRUCT_3_INTEGRATION.md`](docs/CONSTRUCT_3_INTEGRATION.md) — client integration steps
 - [`NETWORK_PROTOCOL.md`](docs/NETWORK_PROTOCOL.md) — messages and synchronized state
 - [`MOVEMENT_AND_PREDICTION.md`](docs/MOVEMENT_AND_PREDICTION.md) — movement, interpolation, and reconciliation
+- [`NETWORK_TESTING.md`](docs/NETWORK_TESTING.md) — latency, loss, hostile-client, and reconnect coverage
 - [`DATABASE.md`](docs/DATABASE.md) — persistence and migration strategy
 - [`ECONOMY_AND_ARKOS.md`](docs/ECONOMY_AND_ARKOS.md) — internal ledger and optional adapter
 - [`SEASONAL_EXTENSION_SYSTEM.md`](docs/SEASONAL_EXTENSION_SYSTEM.md) — secure seasonal result flow
@@ -521,13 +532,15 @@ See [`.env.example`](.env.example) for safe local defaults.
 - Local prediction and authoritative reconciliation
 - Persistent accounts and rotating authenticated sessions
 - Temporary authenticated room reconnection
+- Deterministic network-condition and live WebSocket integration tests
 
 ### Next milestone
 
 1. Assemble and visually validate the included test-layout controller in the Construct 3 editor.
-2. Add automated latency, jitter, packet-loss, reconnect, and modified-client tests.
+2. Visually tune correction smoothing under shaped network conditions.
 3. Add email verification, account recovery, and user-facing session management.
 4. Persist and restore the current zone and spawn state across longer disconnects.
+5. Add multi-client load, soak, and regional deployment tests.
 
 ### Later milestones
 
